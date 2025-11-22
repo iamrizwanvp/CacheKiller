@@ -1,14 +1,14 @@
 🧠 CacheKiller
-Advanced Automated Web Cache Poisoning Scanner
+Advanced Automated Web Cache Poisoning & CDN Behavior Scanner
 
-A modular, async, research-driven framework for discovering cache anomalies, unkeyed headers, CDN misconfigurations, CP-DoS vectors, and poisoning primitives.
+CacheKiller is a research-grade framework for discovering and exploiting web-cache poisoning vectors, unkeyed header behavior, CDN normalization bugs, CP-DoS (Cache Poisoning DoS), and advanced response-differential anomalies.
 
-✨ Features
-🔍 Phase 1 — Discovery
+🚀 Key Features
+Phase 1 — Discovery
 
-Automatically checks cacheability of:
+Automatically detects cacheable endpoints by checking:
 
-/ (base)
+/
 
 /robots.txt
 
@@ -22,210 +22,179 @@ Automatically checks cacheability of:
 
 /*.map
 
-/static/*, /assets/*
+/assets/*, /static/*
 
-Performs 4× fingerprinted requests to confirm:
+Each endpoint is verified with:
 
-Cache HIT / MISS
+4 repeated requests
 
-Content hash stability
+content hashing
 
-Header deltas
+length delta
 
-CDN behaviors
+header normalization
 
-Outputs to:
+cache HIT/MISS detection (Age, X-Cache, CF-Cache-Status)
+
+Results saved to:
 
 output/cache_possible.json
 
-🔥 Phase 2 — Advanced Exploitation
+Phase 2 — Advanced Poisoning Engine
 
-Runs full exploitation modules on cache-eligible targets.
+Runs a full suite of cache poisoning probes on cache-enabled targets.
 
-🧪 Header Probe Engine
-
-Bruteforces headers from:
-
-Built-in poisoning headers
-
-User-supplied header-wordlist
-
-Special poisoning values
-
-Canary values (unique long random tokens)
-
-Detects:
-
-Status code deltas
-
-Cache behavior (HIT → MISS, MISS → HIT)
-
-Content hash mismatch
-
-Length mismatch
-
-Reflection
-
-Location/redirect poisoning
-
-Cached 400/403 (CP-DoS)
-
-Content-Type changes
-
-⚙️ High-Value Poisoning Modules
+🔥 Includes high-value modules:
 Module	Purpose
-xhttp_override	HEAD/POST override poisoning
-accept_version	Fastify CVE-2020-7764 (DoS)
-fat_get	GET + body mismatch
-cloudflare_403	Cacheable 403 via invalid Authorization
-ats_fragment	%23 fragment poisoning (ATS)
-fastly_host	Host-key bypass poisoning
-referer_pair	Dual-Referer poisoning + reflection
-host_port	Host: domain:12345 CP-DoS
-illegal_headers	Raw-socket CRLF/NULL poisoning (dangerous)
+header_probe	brute-force headers (built-in + file list) w/ canary or special poisoning values
+xhttp_override	test X-HTTP-Method-Override: HEAD/POST poisoning
+accept_version	Fastify CVE-2020-7764 DoS vector
+fat_get	GET + request body poisoning
+cloudflare_403	cacheable 403 detection
+ats_fragment	ATS fragment %23 poisoning
+fastly_host	Fastly host-key bypass
+host_port	Host: domain.com:12345 CP-DoS
+referer_pair	dual-referer poisoning
+illegal_headers	raw-socket CRLF/NULL cache poisoning (dangerous)
 
-Everything is written to one file:
+Everything is logged to one file:
 
 output/poisoning_candidates.json
 
-📂 Repository Structure
+
+No extra logs.
+No noise.
+Only actionable findings.
+
+📦 Repository Structure
 cachekiller/
-├─ cli.py
-├─ core_http.py
-├─ discovery.py
-├─ phase2_advanced.py
-├─ storage.py
-├─ utils_canary.py
-├─ analyzer.py
-├─ subdomains.txt
-├─ headers.txt
+├─ cli.py               # Main runner (Phase1 + Phase2)
+├─ core_http.py         # Async HTTP engine + scheduler + rate limiter
+├─ discovery.py         # Cacheability detection
+├─ phase2_advanced.py   # Full poisoning engine
+├─ analyzer.py          # diff / reflection / anomaly scoring
+├─ storage.py           # JSON helpers
+├─ utils_canary.py      # unique canary generators
+├─ subdomains.txt       # input list
+├─ headers.txt          # custom header list
 └─ output/
      ├─ cache_possible.json
      └─ poisoning_candidates.json
 
-⚡ Installation
-1️⃣ Clone the repo
+🛠 Installation
+1️⃣ Clone the repository
 git clone https://github.com/yourusername/CacheKiller.git
 cd CacheKiller
 
-2️⃣ Install requirements
+2️⃣ Install dependencies
 pip install -r requirements.txt
 
-🚀 Usage Guide
-✔️ Step 1 — Prepare Your Inputs
-subdomains.txt
+📥 Input Format (Very Important)
+✔ Accepted:
 assets.example.com
-static.example.com
+cdn.example.com
+api.target.com
+
+✔ ALSO supported now (auto-handled):
+https://assets.example.com
+http://cdn.example.com/
+https://api.example.com/path   <-- path is ignored
+
+
+CacheKiller automatically strips:
+
+http://
+
+https://
+
+trailing slashes
+
+URL paths
+
+Your input is normalized to:
+
+assets.example.com
+cdn.example.com
 api.example.com
 
-
-⚠️ No https:// or http:// prefixes.
-CacheKiller handles protocols automatically.
-
-headers.txt (optional)
-x-client-ip
-x-forwarded-for
-cache-control
-pragma
-foo
-bar
-
 ▶️ Running CacheKiller
-⭐ Full Safe Scan (recommended first)
+⭐ Recommended full safe mode
+python3 cli.py --subdomains subdomains.txt --run-phase2 --header-file headers.txt --verbose
+
+🔥 Full advanced scan (includes dangerous raw-socket tests)
+python3 cli.py --subdomains subdomains.txt --run-phase2 --header-file headers.txt --allow-dangerous --verbose
+
+🎯 Run only specific plugins
 python3 cli.py \
   --subdomains subdomains.txt \
   --run-phase2 \
-  --header-file headers.txt \
+  --plugins header_probe,fastly_host,ats_fragment \
   --verbose
 
-🔥 Full Scan + Dangerous Raw Tests
-
-⚠️ USE ONLY IF YOU HAVE PERMISSION!
-Raw tests can poison caches + cause CP-DoS.
-
-python3 cli.py \
-  --subdomains subdomains.txt \
-  --run-phase2 \
-  --header-file headers.txt \
-  --allow-dangerous \
-  --verbose
-
-🎛 Run Only Specific Plugins
-
-Example: Header brute-force + host_port poisoning:
-
-python3 cli.py \
-  --subdomains subdomains.txt \
-  --run-phase2 \
-  --plugins header_probe,host_port \
-  --verbose
-
-📦 Outputs
+📤 Output Files
 output/cache_possible.json
 
-Compact list of cache-eligible URLs:
+Contains endpoints that are confirmed cacheable:
 
 {
   "target": "assets.example.com",
   "path": "/robots.txt",
   "status": 200,
-  "cache_headers": { "X-Cache": "Hit from cloudfront" }
+  "cache_headers": {
+      "X-Cache": "Hit from cloudfront"
+  }
 }
 
 output/poisoning_candidates.json
 
-Each finding or anomaly:
+All anomalies found during Phase2:
 
 {
   "ts": 1763717577,
-  "target": "example.com",
+  "target": "technical-delivery.float.com",
   "path": "/",
   "probe_kind": "header",
   "header": "Content-Length",
-  "value": "CK-3b10e31b",
+  "value": "CK-df3a1...",
   "base": { "status": 200, "cache_hit": true },
   "test": { "status": 400, "cache_hit": false },
   "anomalies": [
-    "STATUS_CHANGE",
-    "CACHE_BEHAVIOR_CHANGE"
+      "STATUS_CHANGE",
+      "CACHE_BEHAVIOR_CHANGE",
+      "CONTENT_MISMATCH"
   ],
-  "notes": "200 → 400 | HIT → MISS"
+  "notes": "200 → 400 | HIT → MISS | len 3330 → 273"
 }
 
-❗ Legal Disclaimer
+⚠️ Legal Disclaimer
 
-CacheKiller performs:
+CacheKiller can trigger:
 
-cache corruption
+CDN misbehavior
 
-raw-socket injection
+cached 400/403
 
-poisoning of CDN layers
+redirect loops
 
-CP-DoS amplification
+CP-DoS
 
-header clobbering
+illegal-header undefined behavior
 
-reject/collapse-based DoS
+poisoning of public cache layers
 
-You must only use this tool on:
-
-✔ your own systems
-✔ bug bounty programs that explicitly allow high-impact testing
-✔ environments you have permission to test
-
+Use only where legally permitted.
 You are fully responsible for misuse.
 
 🤝 Contributing
 
-Pull requests welcome for:
+Suggestions and PRs welcome:
 
-new plugins
+More poisoning modules
 
-new poisoning techniques from research papers
+CDN-specific patterns (Akamai, CloudFront, Fastly, StackPath)
 
-CDN-specific modules (Akamai, Cloudfront, Fastly, ATS, Varnish)
+Better diff-scoring
 
-optimisation / concurrency upgrades
+Dashboard / reporting
 
-dashboard/reporting modules
+UI wrapper

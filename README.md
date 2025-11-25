@@ -151,7 +151,7 @@ All anomalies found during Phase2:
 
 {
   "ts": 1763717577,
-  "target": "technical-delivery.float.com",
+  "target": "technical-delivery.example.com",
   "path": "/",
   "probe_kind": "header",
   "header": "Content-Length",
